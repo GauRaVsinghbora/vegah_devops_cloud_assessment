@@ -1,0 +1,33 @@
+import { PrismaClient } from '@prisma/client';
+import { MongoClient } from 'mongodb';
+import Redis from 'ioredis';
+import { randomUUID } from 'node:crypto';
+
+describe('SmartURL database integration', () => {
+  const prisma = new PrismaClient();
+  const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+  const mongo = new MongoClient(process.env.MONGODB_URI || 'mongodb://localhost:27017/smarturl');
+
+  afterAll(async () => {
+    await Promise.all([prisma.$disconnect(), redis.quit(), mongo.close()]);
+  });
+
+  it('persists relational URL data, Redis mappings, and Mongo click events', async () => {
+    const client = mongo.db().collection('click_events');
+    const email = `ci-${randomUUID()}@example.test`;
+    const code = randomUUID().replace(/-/g, '').slice(0, 12);
+    const user = await prisma.user.create({ data: { email, passwordHash: 'test-hash' } });
+    try {
+      const url = await prisma.url.create({ data: { userId: user.id, originalUrl: 'https://example.test', shortCode: code } });
+      expect(url.status).toBe('ACTIVE');
+      await redis.set(`integration:${code}`, url.originalUrl, 'EX', 30);
+      expect(await redis.get(`integration:${code}`)).toBe(url.originalUrl);
+      await client.insertOne({ short_code: code, user_id: user.id, browser: 'Test', clicked_at: new Date() });
+      expect(await client.countDocuments({ short_code: code })).toBe(1);
+      await client.deleteMany({ short_code: code });
+      await redis.del(`integration:${code}`);
+    } finally {
+      await prisma.user.delete({ where: { id: user.id } });
+    }
+  });
+});

@@ -1,0 +1,89 @@
+name: SmartURL CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: smarturl
+          MYSQL_USER: smarturl
+          MYSQL_PASSWORD: smarturl
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -proot --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s --health-timeout=3s --health-retries=10
+      mongodb:
+        image: mongo:7
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd="mongosh --quiet --eval 'db.adminCommand(\"ping\").ok'"
+          --health-interval=5s --health-timeout=5s --health-retries=15
+    env:
+      DATABASE_URL: mysql://smarturl:smarturl@127.0.0.1:3306/smarturl
+      REDIS_URL: redis://127.0.0.1:6379
+      MONGODB_URI: mongodb://127.0.0.1:27017/smarturl
+      JWT_SECRET: ci-only-secret-with-more-than-thirty-two-characters
+      PUBLIC_API_URL: http://localhost:4000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      - run: npm run prisma:generate
+        working-directory: backend
+      - run: npx prisma db push
+        working-directory: backend
+      - run: npm run lint
+        working-directory: backend
+      - run: npm run typecheck
+        working-directory: backend
+      - run: npm test
+        working-directory: backend
+      - run: npm run test:integration
+        working-directory: backend
+      - run: npm run build
+        working-directory: backend
+      - run: docker build -t smarturl-backend .
+        working-directory: backend
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run lint
+        working-directory: frontend
+      - run: npm run typecheck
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      - run: docker build --build-arg NEXT_PUBLIC_API_URL=http://localhost:4000/api -t smarturl-frontend .
+        working-directory: frontend

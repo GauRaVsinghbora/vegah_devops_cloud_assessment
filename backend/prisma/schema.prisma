@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid()) @db.VarChar(30)
+  email        String   @unique @db.VarChar(254)
+  passwordHash String   @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at")
+  urls         Url[]
+
+  @@map("users")
+}
+
+model Url {
+  id          String   @id @default(cuid()) @db.VarChar(30)
+  userId      String   @map("user_id") @db.VarChar(30)
+  originalUrl String   @map("original_url") @db.Text
+  shortCode   String   @unique @map("short_code") @db.VarChar(16)
+  status      String   @default("ACTIVE") @db.VarChar(16)
+  createdAt   DateTime @default(now()) @map("created_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt], map: "urls_user_id_created_at_idx")
+  @@index([status, shortCode], map: "urls_status_short_code_idx")
+  @@map("urls")
+}
