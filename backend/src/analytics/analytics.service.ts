@@ -48,10 +48,12 @@ export class AnalyticsService {
     const url = await this.prisma.url.findFirst({ where: { id: urlId, userId } });
     if (!url) throw new NotFoundException('URL not found');
     const match = { short_code: url.shortCode };
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000);
     const [totalClicks, activity, browsers, devices, referrers, recentActivity] = await Promise.all([
       this.mongo.events.countDocuments(match),
       this.mongo.events.aggregate([
-        { $match: match }, { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$clicked_at' } }, clicks: { $sum: 1 } } },
+        { $match: { ...match, clicked_at: { $gte: ninetyDaysAgo } } },
+        { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$clicked_at' } }, clicks: { $sum: 1 } } },
         { $sort: { _id: 1 } }, { $limit: 90 },
       ]).toArray(),
       this.breakdown(match, 'browser'),
