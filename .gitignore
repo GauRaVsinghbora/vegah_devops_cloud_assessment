@@ -7,4 +7,5 @@ coverage
 !.env.example
 *.log
 backend/prisma/dev.db
+backend/src/generated/prisma/
 
