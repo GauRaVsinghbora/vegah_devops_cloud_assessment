@@ -128,7 +128,7 @@ npm ci
 npm run dev
 ```
 
-Use Node.js 20.19 or newer (or Node.js 22.12 or newer). For normal local use, Docker Compose is the simplest fully configured path.
+Use Node.js 24 LTS for local development. For normal local use, Docker Compose is the simplest fully configured path.
 
 The backend uses Prisma ORM 7 with a generated CommonJS client and the MariaDB driver adapter. `DATABASE_URL` remains the MySQL connection string used by both the Prisma CLI and backend. Prisma 7 does not generate a client automatically after `prisma migrate dev`; run `npm run prisma:generate` after migration or schema changes. For TLS connections, use `sslaccept=strict` and mount any certificate files referenced by `sslcert` or `sslidentity` into the backend runtime.
 
@@ -177,7 +177,7 @@ npm run test:integration
 
 `docker-compose.yml` runs frontend, backend, MySQL, Redis, and MongoDB on a private Compose network. Database services use named persistent volumes and health checks; the backend/frontend images use multi-stage builds and run as non-root users.
 
-GitHub Actions runs on every push and pull request. It installs Node.js 20 dependencies, lints and type-checks each app, runs backend unit and database integration tests with MySQL/Redis/MongoDB service containers, builds both apps, and builds both Docker images. No deployment credentials are required by the CI workflow.
+GitHub Actions runs on every push and pull request. It installs Node.js 24 dependencies, lints and type-checks each app, runs backend unit and database integration tests with MySQL/Redis/MongoDB service containers, builds both apps, and builds both Docker images. No deployment credentials are required by the CI workflow.
 
 ## Git workflow
 
