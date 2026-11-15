@@ -33,4 +33,4 @@ COPY --from=build --chown=node:node /app/dist ./dist
 COPY --chown=node:node prisma ./prisma
 USER node
 EXPOSE 4000
-CMD ["npm", "run", "start:container"]
+CMD ["npm", "run", "start"]
