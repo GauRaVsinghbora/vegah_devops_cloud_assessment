@@ -108,23 +108,23 @@ export class UrlsService {
     let destination: string;
     let userId: string;
     if (cached) {
+      let mapping: unknown;
       try {
-        const mapping = JSON.parse(cached) as { destination: string; userId: string };
-        destination = mapping.destination;
-        userId = mapping.userId;
+        mapping = JSON.parse(cached);
       } catch {
+        mapping = null;
+      }
+      if (!this.isCacheMapping(mapping)) {
         await this.redis.client.del(key);
         return this.resolveFromDatabase(code, request);
       }
+      destination = mapping.destination;
+      userId = mapping.userId;
     } else {
       const result = await this.findActive(code);
       destination = result.originalUrl;
       userId = result.userId;
-      try {
-        await this.redis.client.set(key, JSON.stringify({ destination, userId }), 'EX', 3600);
-      } catch (error) {
-        this.logger.error('Redis cache write failed', error instanceof Error ? error.stack : undefined);
-      }
+      await this.cacheMapping(key, destination, userId);
     }
 
     void this.recordClick(code, userId, request);
@@ -133,8 +133,17 @@ export class UrlsService {
 
   private async resolveFromDatabase(code: string, request: Request): Promise<string> {
     const url = await this.findActive(code);
+    await this.cacheMapping(this.cacheKey(code), url.originalUrl, url.userId);
     void this.recordClick(code, url.userId, request);
     return url.originalUrl;
+  }
+
+  private async cacheMapping(key: string, destination: string, userId: string) {
+    try {
+      await this.redis.client.set(key, JSON.stringify({ destination, userId }), 'EX', 3600);
+    } catch (error) {
+      this.logger.error('Redis cache write failed', error instanceof Error ? error.stack : undefined);
+    }
   }
 
   private async findActive(code: string) {
@@ -172,6 +181,16 @@ export class UrlsService {
 
   private cacheKey(code: string) {
     return `short-url:${code}`;
+  }
+
+  private isCacheMapping(value: unknown): value is { destination: string; userId: string } {
+    if (typeof value !== 'object' || value === null) return false;
+    return 'destination' in value
+      && typeof value.destination === 'string'
+      && value.destination.length > 0
+      && 'userId' in value
+      && typeof value.userId === 'string'
+      && value.userId.length > 0;
   }
 
   private isUniqueViolation(error: unknown): boolean {

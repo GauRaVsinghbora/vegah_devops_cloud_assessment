@@ -59,6 +59,45 @@ describe('UrlsService redirects', () => {
     );
   });
 
+  it('evicts structurally invalid cache entries and resolves from MySQL', async () => {
+    const redis = {
+      client: {
+        get: jest.fn().mockResolvedValue(JSON.stringify({ destination: 'https://stale.example.org', userId: 7 })),
+        del: jest.fn().mockResolvedValue(1),
+        set: jest.fn().mockResolvedValue('OK'),
+      },
+      consumeRateLimit: jest.fn().mockResolvedValue(true),
+    };
+    const prisma = {
+      url: {
+        findUnique: jest.fn().mockResolvedValue({
+          originalUrl: 'https://example.org/current',
+          userId: 'u2',
+          status: 'ACTIVE',
+        }),
+      },
+    };
+    const mongo = { events: { insertOne: jest.fn().mockResolvedValue(undefined) } };
+    const service = new UrlsService(
+      prisma as unknown as PrismaService,
+      redis as unknown as RedisService,
+      mongo as unknown as MongoService,
+      { get: () => 'http://localhost:4000' } as unknown as ConfigService,
+    );
+
+    await expect(service.resolve('xyz789', { ip: '127.0.0.1', headers: {} } as unknown as Request))
+      .resolves.toBe('https://example.org/current');
+
+    expect(redis.client.del).toHaveBeenCalledWith('short-url:xyz789');
+    expect(prisma.url.findUnique).toHaveBeenCalledWith({ where: { shortCode: 'xyz789' } });
+    expect(redis.client.set).toHaveBeenCalledWith(
+      'short-url:xyz789',
+      JSON.stringify({ destination: 'https://example.org/current', userId: 'u2' }),
+      'EX',
+      3600,
+    );
+  });
+
   it('rejects redirects after the per-address rate limit is exceeded', async () => {
     const redis = {
       client: { get: jest.fn() },
