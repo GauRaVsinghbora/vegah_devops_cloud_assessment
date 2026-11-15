@@ -115,8 +115,8 @@ Copy `.env.example` to `.env`; its local connection strings use the Compose host
 ```bash
 cd backend
 npm ci
+npx prisma migrate deploy
 npm run prisma:generate
-npm run prisma:migrate
 npm run start:dev
 ```
 
@@ -128,7 +128,9 @@ npm ci
 npm run dev
 ```
 
-Use Node.js 20. For normal local use, Docker Compose is the simplest fully configured path.
+Use Node.js 20.19 or newer (or Node.js 22.12 or newer). For normal local use, Docker Compose is the simplest fully configured path.
+
+The backend uses Prisma ORM 7 with a generated CommonJS client and the MariaDB driver adapter. `DATABASE_URL` remains the MySQL connection string used by both the Prisma CLI and backend. Prisma 7 does not generate a client automatically after `prisma migrate dev`; run `npm run prisma:generate` after migration or schema changes. For TLS connections, use `sslaccept=strict` and mount any certificate files referenced by `sslcert` or `sslidentity` into the backend runtime.
 
 ## REST API
 
@@ -162,12 +164,12 @@ npm run typecheck --prefix frontend
 npm run build --prefix frontend
 ```
 
-The backend integration test exercises actual MySQL, Redis, and MongoDB services. Start them with Compose, apply the schema, and run:
+The backend integration test exercises actual MySQL, Redis, and MongoDB services. Start them with Compose, apply the checked-in migrations to the database, and run:
 
 ```bash
 cd backend
 npm run prisma:generate
-npx prisma db push
+npx prisma migrate deploy
 npm run test:integration
 ```
 

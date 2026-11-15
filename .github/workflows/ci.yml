@@ -51,7 +51,7 @@ jobs:
         working-directory: backend
       - run: npm run prisma:generate
         working-directory: backend
-      - run: npx prisma db push
+      - run: npx prisma migrate deploy
         working-directory: backend
       - run: npm run lint
         working-directory: backend

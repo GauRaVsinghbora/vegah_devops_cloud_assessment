@@ -2,7 +2,7 @@ import {
   ConflictException, Injectable, NotFoundException, BadRequestException, Logger, HttpException, HttpStatus,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../generated/prisma/client';
 import type { Request } from 'express';
 import { randomBytes, createHash } from 'node:crypto';
 import { MongoService } from '../mongo/mongo.service';
