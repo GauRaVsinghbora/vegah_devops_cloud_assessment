@@ -9,3 +9,6 @@ coverage
 backend/prisma/dev.db
 backend/src/generated/prisma/
 
+
+# Database TLS certificates
+/backend/certs/
